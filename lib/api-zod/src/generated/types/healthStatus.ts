@@ -8,5 +8,8 @@
 
 export interface HealthStatus {
   status: string;
+  /** Number of active symbols tracked in the DB */
   symbolCount?: number;
+  /** Number of symbols with live DXLink quote subscriptions */
+  connectedSymbolCount?: number;
 }

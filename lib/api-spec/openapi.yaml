@@ -155,6 +155,10 @@ components:
           type: string
         symbolCount:
           type: integer
+          description: Number of active symbols tracked in the DB
+        connectedSymbolCount:
+          type: integer
+          description: Number of symbols with live DXLink quote subscriptions
       required:
         - status
     SymbolRecord:

@@ -13,7 +13,14 @@ import * as zod from "zod";
  */
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
-  symbolCount: zod.number().optional(),
+  symbolCount: zod
+    .number()
+    .optional()
+    .describe("Number of active symbols tracked in the DB"),
+  connectedSymbolCount: zod
+    .number()
+    .optional()
+    .describe("Number of symbols with live DXLink quote subscriptions"),
 });
 
 /**

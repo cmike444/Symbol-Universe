@@ -14,6 +14,9 @@ export interface Candle {
 
 type Timeframe = "1d" | "60m" | "15m";
 
+const candleCacheTtlMs =
+  parseInt(process.env["CANDLE_CACHE_TTL_MINUTES"] ?? "15", 10) * 60 * 1000;
+
 interface TimeframeConfig {
   candleType: CandleType;
   period: number;
@@ -32,13 +35,13 @@ const TIMEFRAME_CONFIG: Record<Timeframe, TimeframeConfig> = {
     candleType: CandleType.Minute,
     period: 60,
     lookbackMs: 60 * 24 * 60 * 60 * 1000,
-    cacheTtlMs: 15 * 60 * 1000,
+    cacheTtlMs: candleCacheTtlMs,
   },
   "15m": {
     candleType: CandleType.Minute,
     period: 15,
     lookbackMs: 14 * 24 * 60 * 60 * 1000,
-    cacheTtlMs: 15 * 60 * 1000,
+    cacheTtlMs: candleCacheTtlMs,
   },
 };
 
