@@ -19,6 +19,10 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+if (!process.env["INTERNAL_API_TOKEN"]) {
+  logger.warn("INTERNAL_API_TOKEN is not set — all /api endpoints (except /healthz) will return 503");
+}
+
 if (!process.env["TASTYTRADE_CLIENT_SECRET"]) {
   logger.warn("TASTYTRADE_CLIENT_SECRET is not set — TastyTrade integration will be unavailable");
 }
