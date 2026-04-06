@@ -1,6 +1,7 @@
 import { schedule } from "node-cron";
-import { listActiveSymbols, updateSymbolScore } from "../db/symbolRepo.js";
+import { listActiveSymbols, updateSymbolScore, markSymbolInactive } from "../db/symbolRepo.js";
 import { getMetricsBulk } from "./metricsService.js";
+import { unsubscribeQuotes } from "./quoteService.js";
 import { broadcastEvent } from "../websocket/server.js";
 import { logger } from "../lib/logger.js";
 
@@ -59,8 +60,10 @@ export async function runScoring(): Promise<
     } else {
       logger.info(
         { symbol: sym.symbol, score, MIN_SCORE },
-        "Symbol dropped below score threshold",
+        "Dropping symbol below score threshold",
       );
+      await markSymbolInactive(sym.symbol);
+      unsubscribeQuotes(sym.symbol);
     }
   }
 

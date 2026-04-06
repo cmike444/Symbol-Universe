@@ -1,5 +1,6 @@
 import { CandleType } from "@tastytrade/api";
 import { getTastytradeClient } from "./tastytradeClient.js";
+import { broadcastEvent } from "../websocket/server.js";
 import { logger } from "../lib/logger.js";
 
 export interface Candle {
@@ -99,7 +100,10 @@ export async function getCandles(
           volume: e.volume ?? 0,
         };
 
-        candles.push(candle);
+        if (candle.time > 0) {
+          candles.push(candle);
+          broadcastEvent({ type: "candle", symbol, timeframe, candle });
+        }
       }
     },
   );
