@@ -5,15 +5,25 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  Candle,
+  ErrorResponse,
+  HealthStatus,
+  MarketMetrics,
+  MessageResponse,
+  SymbolRecord,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
 import type { ErrorType } from "../custom-fetch";
@@ -92,6 +102,438 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns all active symbols with score, iv_rank, and last_scored
+ * @summary List active symbols
+ */
+export const getListSymbolsUrl = () => {
+  return `/api/symbols`;
+};
+
+export const listSymbols = async (
+  options?: RequestInit,
+): Promise<SymbolRecord[]> => {
+  return customFetch<SymbolRecord[]>(getListSymbolsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSymbolsQueryKey = () => {
+  return [`/api/symbols`] as const;
+};
+
+export const getListSymbolsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSymbols>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSymbols>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSymbolsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listSymbols>>> = ({
+    signal,
+  }) => listSymbols({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSymbols>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSymbolsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSymbols>>
+>;
+export type ListSymbolsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List active symbols
+ */
+
+export function useListSymbols<
+  TData = Awaited<ReturnType<typeof listSymbols>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSymbols>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSymbolsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Adds a symbol, opens DXLink quote subscription and caches metrics
+ * @summary Add symbol to universe
+ */
+export const getAddSymbolUrl = (symbol: string) => {
+  return `/api/symbols/${symbol}`;
+};
+
+export const addSymbol = async (
+  symbol: string,
+  options?: RequestInit,
+): Promise<SymbolRecord> => {
+  return customFetch<SymbolRecord>(getAddSymbolUrl(symbol), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAddSymbolMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addSymbol>>,
+    TError,
+    { symbol: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addSymbol>>,
+  TError,
+  { symbol: string },
+  TContext
+> => {
+  const mutationKey = ["addSymbol"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addSymbol>>,
+    { symbol: string }
+  > = (props) => {
+    const { symbol } = props ?? {};
+
+    return addSymbol(symbol, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddSymbolMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addSymbol>>
+>;
+
+export type AddSymbolMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Add symbol to universe
+ */
+export const useAddSymbol = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addSymbol>>,
+    TError,
+    { symbol: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addSymbol>>,
+  TError,
+  { symbol: string },
+  TContext
+> => {
+  return useMutation(getAddSymbolMutationOptions(options));
+};
+
+/**
+ * Removes a symbol and closes its DXLink subscription
+ * @summary Remove symbol from universe
+ */
+export const getRemoveSymbolUrl = (symbol: string) => {
+  return `/api/symbols/${symbol}`;
+};
+
+export const removeSymbol = async (
+  symbol: string,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getRemoveSymbolUrl(symbol), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveSymbolMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeSymbol>>,
+    TError,
+    { symbol: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeSymbol>>,
+  TError,
+  { symbol: string },
+  TContext
+> => {
+  const mutationKey = ["removeSymbol"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeSymbol>>,
+    { symbol: string }
+  > = (props) => {
+    const { symbol } = props ?? {};
+
+    return removeSymbol(symbol, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveSymbolMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeSymbol>>
+>;
+
+export type RemoveSymbolMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Remove symbol from universe
+ */
+export const useRemoveSymbol = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeSymbol>>,
+    TError,
+    { symbol: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeSymbol>>,
+  TError,
+  { symbol: string },
+  TContext
+> => {
+  return useMutation(getRemoveSymbolMutationOptions(options));
+};
+
+/**
+ * Returns OHLCV array for the given symbol and timeframe (1d, 60m, 15m)
+ * @summary Get OHLCV candles
+ */
+export const getGetCandlesUrl = (
+  symbol: string,
+  timeframe: "1d" | "60m" | "15m",
+) => {
+  return `/api/candles/${symbol}/${timeframe}`;
+};
+
+export const getCandles = async (
+  symbol: string,
+  timeframe: "1d" | "60m" | "15m",
+  options?: RequestInit,
+): Promise<Candle[]> => {
+  return customFetch<Candle[]>(getGetCandlesUrl(symbol, timeframe), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCandlesQueryKey = (
+  symbol: string,
+  timeframe: "1d" | "60m" | "15m",
+) => {
+  return [`/api/candles/${symbol}/${timeframe}`] as const;
+};
+
+export const getGetCandlesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCandles>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  symbol: string,
+  timeframe: "1d" | "60m" | "15m",
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCandles>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCandlesQueryKey(symbol, timeframe);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCandles>>> = ({
+    signal,
+  }) => getCandles(symbol, timeframe, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(symbol && timeframe),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCandles>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCandlesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCandles>>
+>;
+export type GetCandlesQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get OHLCV candles
+ */
+
+export function useGetCandles<
+  TData = Awaited<ReturnType<typeof getCandles>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  symbol: string,
+  timeframe: "1d" | "60m" | "15m",
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCandles>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCandlesQueryOptions(symbol, timeframe, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns IV rank, IVx, earnings date, and lendability (5-minute TTL cache)
+ * @summary Get market metrics
+ */
+export const getGetMetricsUrl = (symbol: string) => {
+  return `/api/metrics/${symbol}`;
+};
+
+export const getMetrics = async (
+  symbol: string,
+  options?: RequestInit,
+): Promise<MarketMetrics> => {
+  return customFetch<MarketMetrics>(getGetMetricsUrl(symbol), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMetricsQueryKey = (symbol: string) => {
+  return [`/api/metrics/${symbol}`] as const;
+};
+
+export const getGetMetricsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMetrics>>,
+  TError = ErrorType<unknown>,
+>(
+  symbol: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMetrics>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMetricsQueryKey(symbol);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMetrics>>> = ({
+    signal,
+  }) => getMetrics(symbol, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!symbol,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMetrics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMetricsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMetrics>>
+>;
+export type GetMetricsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get market metrics
+ */
+
+export function useGetMetrics<
+  TData = Awaited<ReturnType<typeof getMetrics>>,
+  TError = ErrorType<unknown>,
+>(
+  symbol: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMetrics>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMetricsQueryOptions(symbol, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

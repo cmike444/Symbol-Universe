@@ -7,4 +7,41 @@
  */
 export interface HealthStatus {
   status: string;
+  symbolCount?: number;
+}
+
+export interface SymbolRecord {
+  symbol: string;
+  addedAt: number;
+  lastScored?: number | null;
+  ivRank?: number | null;
+  ivx?: number | null;
+  earningsDate?: string | null;
+  score?: number | null;
+  active: number;
+}
+
+export interface Candle {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface MarketMetrics {
+  symbol: string;
+  ivRank?: number | null;
+  ivx?: number | null;
+  earningsDate?: string | null;
+  lendability?: string | null;
+}
+
+export interface ErrorResponse {
+  error: string;
+}
+
+export interface MessageResponse {
+  message: string;
 }

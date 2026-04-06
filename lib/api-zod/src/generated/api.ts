@@ -13,4 +13,87 @@ import * as zod from "zod";
  */
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
+  symbolCount: zod.number().optional(),
+});
+
+/**
+ * Returns all active symbols with score, iv_rank, and last_scored
+ * @summary List active symbols
+ */
+export const ListSymbolsResponseItem = zod.object({
+  symbol: zod.string(),
+  addedAt: zod.number(),
+  lastScored: zod.number().nullish(),
+  ivRank: zod.number().nullish(),
+  ivx: zod.number().nullish(),
+  earningsDate: zod.string().nullish(),
+  score: zod.number().nullish(),
+  active: zod.number(),
+});
+export const ListSymbolsResponse = zod.array(ListSymbolsResponseItem);
+
+/**
+ * Adds a symbol, opens DXLink quote subscription and caches metrics
+ * @summary Add symbol to universe
+ */
+export const AddSymbolParams = zod.object({
+  symbol: zod.coerce.string(),
+});
+
+export const AddSymbolResponse = zod.object({
+  symbol: zod.string(),
+  addedAt: zod.number(),
+  lastScored: zod.number().nullish(),
+  ivRank: zod.number().nullish(),
+  ivx: zod.number().nullish(),
+  earningsDate: zod.string().nullish(),
+  score: zod.number().nullish(),
+  active: zod.number(),
+});
+
+/**
+ * Removes a symbol and closes its DXLink subscription
+ * @summary Remove symbol from universe
+ */
+export const RemoveSymbolParams = zod.object({
+  symbol: zod.coerce.string(),
+});
+
+export const RemoveSymbolResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * Returns OHLCV array for the given symbol and timeframe (1d, 60m, 15m)
+ * @summary Get OHLCV candles
+ */
+export const GetCandlesParams = zod.object({
+  symbol: zod.coerce.string(),
+  timeframe: zod.enum(["1d", "60m", "15m"]),
+});
+
+export const GetCandlesResponseItem = zod.object({
+  time: zod.number(),
+  open: zod.number(),
+  high: zod.number(),
+  low: zod.number(),
+  close: zod.number(),
+  volume: zod.number(),
+});
+export const GetCandlesResponse = zod.array(GetCandlesResponseItem);
+
+/**
+ * Returns IV rank, IVx, earnings date, and lendability (5-minute TTL cache)
+ * @summary Get market metrics
+ */
+export const GetMetricsParams = zod.object({
+  symbol: zod.coerce.string(),
+});
+
+export const GetMetricsResponse = zod.object({
+  symbol: zod.string(),
+  ivRank: zod.number().nullish(),
+  ivx: zod.number().nullish(),
+  earningsDate: zod.string().nullish(),
+  lendability: zod.string().nullish(),
 });

@@ -10,6 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: symbols
+    description: Symbol universe management
+  - name: candles
+    description: OHLCV candle data
+  - name: metrics
+    description: Market metrics
 paths:
   /healthz:
     get:
@@ -24,6 +30,122 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /symbols:
+    get:
+      operationId: listSymbols
+      tags: [symbols]
+      summary: List active symbols
+      description: Returns all active symbols with score, iv_rank, and last_scored
+      responses:
+        "200":
+          description: Active symbol list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SymbolRecord"
+  /symbols/{symbol}:
+    post:
+      operationId: addSymbol
+      tags: [symbols]
+      summary: Add symbol to universe
+      description: Adds a symbol, opens DXLink quote subscription and caches metrics
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Symbol added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SymbolRecord"
+        "409":
+          description: Symbol already active
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: removeSymbol
+      tags: [symbols]
+      summary: Remove symbol from universe
+      description: Removes a symbol and closes its DXLink subscription
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Symbol removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: Symbol not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /candles/{symbol}/{timeframe}:
+    get:
+      operationId: getCandles
+      tags: [candles]
+      summary: Get OHLCV candles
+      description: Returns OHLCV array for the given symbol and timeframe (1d, 60m, 15m)
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: timeframe
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [1d, 60m, 15m]
+      responses:
+        "200":
+          description: Candle data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Candle"
+        "400":
+          description: Invalid timeframe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /metrics/{symbol}:
+    get:
+      operationId: getMetrics
+      tags: [metrics]
+      summary: Get market metrics
+      description: Returns IV rank, IVx, earnings date, and lendability (5-minute TTL cache)
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Market metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketMetrics"
 components:
   schemas:
     HealthStatus:
@@ -31,6 +153,90 @@ components:
       properties:
         status:
           type: string
+        symbolCount:
+          type: integer
       required:
         - status
-
+    SymbolRecord:
+      type: object
+      properties:
+        symbol:
+          type: string
+        addedAt:
+          type: integer
+        lastScored:
+          type: integer
+          nullable: true
+        ivRank:
+          type: number
+          nullable: true
+        ivx:
+          type: number
+          nullable: true
+        earningsDate:
+          type: string
+          nullable: true
+        score:
+          type: number
+          nullable: true
+        active:
+          type: integer
+      required:
+        - symbol
+        - addedAt
+        - active
+    Candle:
+      type: object
+      properties:
+        time:
+          type: number
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+        volume:
+          type: number
+      required:
+        - time
+        - open
+        - high
+        - low
+        - close
+        - volume
+    MarketMetrics:
+      type: object
+      properties:
+        symbol:
+          type: string
+        ivRank:
+          type: number
+          nullable: true
+        ivx:
+          type: number
+          nullable: true
+        earningsDate:
+          type: string
+          nullable: true
+        lendability:
+          type: string
+          nullable: true
+      required:
+        - symbol
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
