@@ -1,0 +1,219 @@
+# symbol-universe — Implementation Plan
+
+## Context
+
+`symbol-universe` is the **canonical data layer** for the entire hedge fund infrastructure. It owns the single DXLink WebSocket connection to TastyTrade and serves candles, real-time quotes, and market metrics to all other services (zone-api, execution-engine, risk-engine, analytics-api, ml-services). No other service connects to DXLink or the TastyTrade API directly for market data.
+
+It also manages the **active symbol universe** — which symbols the system is currently watching, scored and ranked by tradability (IV rank, zone quality, liquidity, earnings proximity).
+
+Two responsibilities, one service:
+1. **Datafeed wrapper** — OHLCV candles, real-time quotes, IV rank cached and served over REST + WebSocket
+2. **Universe manager** — symbol scoring, scheduling, auto-registration with zone-api
+
+**Repo:** `/Users/chrismikelson/Github/symbol-universe/`
+**Port:** 3005
+
+---
+
+## Project Structure
+
+```
+symbol-universe/
+├── src/
+│   ├── index.ts                    # Start HTTP + WS server
+│   ├── routes/
+│   │   ├── symbols.ts              # POST/DELETE /symbols/:symbol, GET /symbols
+│   │   ├── candles.ts              # GET /candles/:symbol/:timeframe
+│   │   ├── metrics.ts              # GET /metrics/:symbol
+│   │   └── health.ts               # GET /health
+│   ├── mcp/
+│   │   ├── server.ts               # McpServer (stdio)
+│   │   └── tools.ts                # scan_universe, get_metrics, get_candles
+│   ├── services/
+│   │   ├── tastytradeClient.ts     # Auth singleton + WebSocket polyfill (the ONE copy in infra)
+│   │   ├── candleService.ts        # subscribeCandles + in-memory cache per symbol/tf
+│   │   ├── quoteService.ts         # Persistent QuoteStreamer — publishes ticks to WS clients
+│   │   ├── metricsService.ts       # getMarketMetrics — cached, TTL-refreshed
+│   │   └── universeService.ts      # Scoring, scheduling, symbol lifecycle
+│   ├── websocket/
+│   │   ├── server.ts               # ws.Server, per-symbol rooms
+│   │   └── events.ts               # Typed price tick + candle update events
+│   ├── db/
+│   │   ├── schema.ts               # SQLite: symbols, candle_cache, metrics_cache
+│   │   └── symbolRepo.ts           # Symbol CRUD + scoring
+│   └── types.ts
+├── data/universe.db                # SQLite (gitignored)
+├── .env.example
+├── package.json
+└── tsconfig.json
+```
+
+---
+
+## Dependencies
+
+```json
+{
+  "@tastytrade/api": "^7.0.1",
+  "@modelcontextprotocol/sdk": "^1.26.0",
+  "express": "^5.x",
+  "ws": "^8.x",
+  "better-sqlite3": "^11.x",
+  "dotenv": "^16.x"
+}
+```
+
+---
+
+## SQLite Schema
+
+```sql
+CREATE TABLE symbols (
+  symbol        TEXT PRIMARY KEY,
+  added_at      INTEGER NOT NULL,
+  last_scored   INTEGER,
+  iv_rank       REAL,
+  ivx           REAL,
+  earnings_date TEXT,
+  score         REAL,          -- composite: iv_rank + zone_quality + liquidity
+  active        INTEGER DEFAULT 1
+);
+
+CREATE TABLE metrics_cache (
+  symbol        TEXT PRIMARY KEY,
+  iv_rank       REAL,
+  ivx           REAL,
+  earnings_date TEXT,
+  lendability   TEXT,
+  cached_at     INTEGER NOT NULL
+);
+-- Candle data is in-memory only (rebuilt on startup/subscription)
+-- Full historical persistence is a future upgrade (ml-services / analytics-api can request via REST)
+```
+
+---
+
+## REST API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/symbols/:symbol` | Add symbol to universe; open DXLink quote subscription |
+| `DELETE` | `/symbols/:symbol` | Remove symbol; close DXLink subscription |
+| `GET` | `/symbols` | All active symbols with score, iv_rank, last_scored |
+| `GET` | `/candles/:symbol/:timeframe` | OHLCV array. `timeframe`: `1d`, `60m`, `15m`. Fetches via DXLink if not cached |
+| `GET` | `/metrics/:symbol` | IV rank, IVx, earnings date, lendability (cache TTL: 5 min) |
+| `GET` | `/health` | Service status, connected symbols count |
+
+---
+
+## WebSocket Events
+
+```
+ws://localhost:3005/stream             # all symbols
+ws://localhost:3005/stream/:symbol     # per-symbol
+```
+
+```typescript
+{ type: 'price',  symbol: string, price: number, bid: number, ask: number, timestamp: number }
+{ type: 'candle', symbol: string, timeframe: string, candle: Candle }
+```
+
+zone-api and execution-engine subscribe to `ws://localhost:3005/stream/:symbol` for real-time prices instead of connecting to DXLink directly.
+
+---
+
+## Core Services
+
+### `tastytradeClient.ts`
+The **only** DXLink client singleton in the infrastructure. All other services consume data from symbol-universe over HTTP/WS — they do not instantiate their own TastytradeClient.
+
+```typescript
+(global as any).WebSocket = WebSocket
+(global as any).window = { WebSocket, setTimeout, clearTimeout }
+// Singleton: TastytradeClient.getInstance()
+```
+
+### `candleService.ts`
+On `GET /candles/:symbol/:timeframe`:
+1. Check in-memory cache (valid if age < 15 min for 15m/60m, < 60 min for 1d)
+2. Cache miss → `subscribeCandles(symbol, fromTime, period, CandleType)` with 8s collect window
+3. Return array, update cache
+
+Timeframe configs:
+| TF | CandleType | Period | Lookback |
+|----|-----------|--------|---------|
+| `1d` | `CandleType.Day` | 1 | 365 days |
+| `60m` | `CandleType.Minute` | 60 | 60 days |
+| `15m` | `CandleType.Minute` | 15 | 14 days |
+
+DXLink historical data via `fromTime` covers this range without external data sources.
+
+### `quoteService.ts`
+Persistent `QuoteStreamer` subscription for each active symbol. Broadcasts `price` events to WS clients. No timeout removal — connection lives for the lifetime of the symbol in the universe.
+
+### `metricsService.ts`
+Wraps `getMarketMetrics([symbol])`. TTL: 5 minutes (configurable via env). Cache stored in SQLite `metrics_cache`.
+
+### `universeService.ts`
+Runs on schedule (configurable cron; default pre-market 08:00 + on-demand):
+1. Fetch IV rank for all active symbols in bulk
+2. Score each: `score = ivRank * 0.5 + liquidityScore * 0.3 + (1 - daysToEarnings/30) * 0.2`
+3. Sort, emit scoring events on WS
+4. Drop symbols that fall below threshold (configurable `MIN_UNIVERSE_SCORE`)
+
+---
+
+## MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `scan_universe()` | Trigger a fresh scoring pass, return top ranked symbols |
+| `get_metrics(symbol)` | IV rank, IVx, earnings date for a symbol |
+| `get_candles(symbol, timeframe)` | OHLCV array for given symbol + timeframe |
+| `add_symbol(symbol)` | Add to active universe |
+| `remove_symbol(symbol)` | Remove from universe |
+| `get_universe()` | Current ranked symbol list with scores |
+
+---
+
+## Build Order
+
+1. `package.json` + `tsconfig.json` + `.env.example`
+2. `services/tastytradeClient.ts` — WebSocket polyfill + auth singleton
+3. `db/schema.ts` + `db/symbolRepo.ts`
+4. `services/metricsService.ts` — IV rank cache
+5. `services/candleService.ts` — candle fetch + in-memory cache
+6. `services/quoteService.ts` — persistent quote streaming
+7. `services/universeService.ts` — scoring + scheduling
+8. `websocket/events.ts` + `websocket/server.ts`
+9. All routes
+10. `mcp/server.ts` + `mcp/tools.ts`
+11. `index.ts`
+
+---
+
+## Environment Variables
+
+```
+TASTYTRADE_USERNAME=
+TASTYTRADE_PASSWORD=
+TASTYTRADE_ACCOUNT=
+PORT=3005
+METRICS_CACHE_TTL_SECONDS=300
+CANDLE_CACHE_TTL_MINUTES=15
+MIN_UNIVERSE_SCORE=0.4
+UNIVERSE_SCAN_CRON="0 8 * * 1-5"
+```
+
+---
+
+## Verification
+
+- `POST /symbols/AAPL` → DXLink subscription opens, metrics cached
+- `GET /candles/AAPL/1d` → returns 365-day OHLCV array
+- `GET /candles/AAPL/15m` → returns 14-day 15-minute candles
+- `GET /metrics/AAPL` → IV rank, IVx, earnings date
+- WS stream emits `price` events for each tick on active symbols
+- `scan_universe()` MCP tool returns scored symbol list
+- zone-api can fetch candles from symbol-universe without its own DXLink client
+- Only one DXLink WebSocket connection open per symbol across the entire system
