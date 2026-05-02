@@ -6,6 +6,15 @@ import { logger } from "../lib/logger.js";
 const activeSymbols = new Set<string>();
 const listenerRemovers = new Map<string, () => void>();
 
+interface CachedQuote {
+  price: number;
+  bid: number;
+  ask: number;
+  updatedAt: number;
+}
+
+const quoteCache = new Map<string, CachedQuote>();
+
 interface DxLinkQuoteEvent {
   eventType?: string;
   eventSymbol?: string;
@@ -38,6 +47,8 @@ export async function subscribeQuotes(symbol: string): Promise<void> {
         const price = e.price ?? e.lastPrice ?? (bid + ask) / 2;
         const timestamp = e.time ?? e.lastTime ?? Date.now();
 
+        quoteCache.set(symbol.toUpperCase(), { price, bid, ask, updatedAt: timestamp });
+
         broadcastEvent({ type: "price", symbol, price, bid, ask, timestamp });
       }
     },
@@ -68,4 +79,13 @@ export function unsubscribeQuotes(symbol: string): void {
 
 export function getActiveSymbols(): string[] {
   return [...activeSymbols];
+}
+
+const QUOTE_CACHE_TTL_MS = parseInt(process.env["QUOTE_CACHE_TTL_MINUTES"] ?? "5", 10) * 60 * 1000;
+
+export function getCachedQuotePrice(symbol: string): number | null {
+  const entry = quoteCache.get(symbol.toUpperCase());
+  if (!entry) return null;
+  if (Date.now() - entry.updatedAt > QUOTE_CACHE_TTL_MS) return null;
+  return entry.price;
 }
