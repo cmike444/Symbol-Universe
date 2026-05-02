@@ -4,6 +4,8 @@ import { logger } from "./lib/logger.js";
 import { createWebSocketServer } from "./websocket/server.js";
 import { getTastytradeClient } from "./services/tastytradeClient.js";
 import { startUniverseScheduler } from "./services/universeService.js";
+import { startScannerService } from "./services/scannerService.js";
+import { startCandleRefreshService } from "./services/candleRefreshService.js";
 import { subscribeQuotes } from "./services/quoteService.js";
 import { listActiveSymbols } from "./db/symbolRepo.js";
 
@@ -61,5 +63,19 @@ httpServer.listen(port, async () => {
   } else {
     logger.warn("Skipping TastyTrade initialization — credentials not set");
     startUniverseScheduler();
+  }
+
+  // Refresh daily candles before starting scanners so price/volume filters
+  // have data on the very first scanner tick after startup
+  try {
+    await startCandleRefreshService();
+  } catch (err) {
+    logger.error({ err }, "Failed to start candle refresh service");
+  }
+
+  try {
+    await startScannerService();
+  } catch (err) {
+    logger.error({ err }, "Failed to start scanner service");
   }
 });

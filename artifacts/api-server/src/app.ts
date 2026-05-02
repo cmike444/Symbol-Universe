@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import router from "./routes/index.js";
 import healthRouter from "./routes/health.js";
 import statusRouter from "./routes/status.js";
+import scannersRouter from "./routes/scanners.js";
 import { requireInternalToken } from "./middlewares/requireInternalToken.js";
 import { increment } from "./lib/requestCounter.js";
 import { logger } from "./lib/logger.js";
@@ -40,6 +41,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 
 app.use("/api", healthRouter);
 app.use("/api", statusRouter);
+app.use("/api", scannersRouter);
 
 app.use("/api", requireInternalToken, router);
 

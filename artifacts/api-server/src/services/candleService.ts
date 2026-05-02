@@ -2,6 +2,7 @@ import { CandleType } from "@tastytrade/api";
 import { getTastytradeClient } from "./tastytradeClient.js";
 import { broadcastEvent } from "../websocket/server.js";
 import { logger } from "../lib/logger.js";
+import { updateSymbolCandle } from "../db/symbolRepo.js";
 
 export interface Candle {
   time: number;
@@ -56,6 +57,13 @@ const cache = new Map<string, CacheEntry>();
 
 function cacheKey(symbol: string, timeframe: Timeframe): string {
   return `${symbol}:${timeframe}`;
+}
+
+export function getLastCachedCandle(symbol: string, timeframe: Timeframe = "1d"): Candle | null {
+  const key = cacheKey(symbol, timeframe);
+  const entry = cache.get(key);
+  if (!entry || entry.candles.length === 0) return null;
+  return entry.candles[entry.candles.length - 1] ?? null;
 }
 
 interface DxCandleEvent {
@@ -128,6 +136,14 @@ export async function getCandles(
 
   cache.set(key, { candles: sorted, cachedAt: now });
   logger.info({ symbol, timeframe, count: sorted.length }, "Candle fetch complete");
+
+  // Persist the latest daily candle to DB so the scanner can read it without a live API call
+  if (timeframe === "1d" && sorted.length > 0) {
+    const latest = sorted[sorted.length - 1]!;
+    updateSymbolCandle(symbol, latest).catch((err) =>
+      logger.warn({ err, symbol }, "Failed to persist latest candle to symbols table"),
+    );
+  }
 
   return sorted;
 }

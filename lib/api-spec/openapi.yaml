@@ -16,6 +16,8 @@ tags:
     description: OHLCV candle data
   - name: metrics
     description: Market metrics
+  - name: scanners
+    description: Scanner management
 paths:
   /healthz:
     get:
@@ -146,6 +148,157 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MarketMetrics"
+  /scanners:
+    get:
+      operationId: listScanners
+      tags: [scanners]
+      summary: List all scanners
+      description: Returns all scanners with their status, last run time, and result count
+      responses:
+        "200":
+          description: Scanner list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScannerSummary"
+    post:
+      operationId: createScanner
+      tags: [scanners]
+      summary: Create scanner
+      description: Creates a new scanner with filter rules and a run interval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScannerRequest"
+      responses:
+        "201":
+          description: Scanner created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScannerDetail"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /scanners/{id}:
+    get:
+      operationId: getScanner
+      tags: [scanners]
+      summary: Get scanner
+      description: Returns full scanner config including filter rules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Scanner detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScannerDetail"
+        "404":
+          description: Scanner not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateScanner
+      tags: [scanners]
+      summary: Update scanner
+      description: Updates an existing scanner's config; reschedules if needed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScannerRequest"
+      responses:
+        "200":
+          description: Scanner updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScannerDetail"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Scanner not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteScanner
+      tags: [scanners]
+      summary: Delete scanner
+      description: Deletes a scanner and removes its schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Scanner deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: Scanner not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /scanners/{id}/results:
+    get:
+      operationId: getScannerResults
+      tags: [scanners]
+      summary: Get scanner results
+      description: Returns the current snapshot of passing symbols with their metrics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Scanner results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScannerResultItem"
+        "404":
+          description: Scanner not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -244,3 +397,204 @@ components:
           type: string
       required:
         - message
+    FilterRule:
+      oneOf:
+        - description: Filter rule for numeric metrics
+          type: object
+          properties:
+            metric:
+              type: string
+              enum: [ivRank, ivx, score, earningsDate, price, volume, open, high, low, ivPercentile, liquidityRank, beta, marketCap, callVolume, putVolume, callOpenInterest, putOpenInterest]
+            operator:
+              type: string
+              enum: [">", ">=", "<", "<=", "=", "!=", "between"]
+            value:
+              type: number
+            value2:
+              type: number
+              nullable: true
+              description: Required when operator is "between"
+          required:
+            - metric
+            - operator
+            - value
+        - description: Filter rule for text metrics (lendability, instrumentType)
+          type: object
+          properties:
+            metric:
+              type: string
+              enum: [lendability, instrumentType]
+            operator:
+              type: string
+              enum: ["=", "!="]
+            value:
+              type: string
+          required:
+            - metric
+            - operator
+            - value
+    ScannerSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        intervalSeconds:
+          type: integer
+        enabled:
+          type: boolean
+        lastRunAt:
+          type: integer
+          nullable: true
+        resultCount:
+          type: integer
+        filterCount:
+          type: integer
+        createdAt:
+          type: integer
+      required:
+        - id
+        - name
+        - intervalSeconds
+        - enabled
+        - resultCount
+        - filterCount
+        - createdAt
+    ScannerDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/FilterRule"
+        intervalSeconds:
+          type: integer
+        enabled:
+          type: boolean
+        lastRunAt:
+          type: integer
+          nullable: true
+        createdAt:
+          type: integer
+      required:
+        - id
+        - name
+        - filters
+        - intervalSeconds
+        - enabled
+        - createdAt
+    CreateScannerRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/FilterRule"
+        intervalSeconds:
+          type: integer
+          default: 300
+        enabled:
+          type: boolean
+          default: true
+      required:
+        - name
+        - filters
+    UpdateScannerRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/FilterRule"
+        intervalSeconds:
+          type: integer
+        enabled:
+          type: boolean
+    ScannerResultItem:
+      type: object
+      properties:
+        symbol:
+          type: string
+        ivRank:
+          type: number
+          nullable: true
+        ivx:
+          type: number
+          nullable: true
+        score:
+          type: number
+          nullable: true
+        lendability:
+          type: string
+          nullable: true
+        earningsDate:
+          type: string
+          nullable: true
+        price:
+          type: number
+          nullable: true
+        volume:
+          type: number
+          nullable: true
+        open:
+          type: number
+          nullable: true
+        high:
+          type: number
+          nullable: true
+        low:
+          type: number
+          nullable: true
+        ivPercentile:
+          type: number
+          nullable: true
+        liquidityRank:
+          type: number
+          nullable: true
+        beta:
+          type: number
+          nullable: true
+        marketCap:
+          type: number
+          nullable: true
+        callVolume:
+          type: number
+          nullable: true
+        putVolume:
+          type: number
+          nullable: true
+        callOpenInterest:
+          type: number
+          nullable: true
+        putOpenInterest:
+          type: number
+          nullable: true
+        instrumentType:
+          type: string
+          nullable: true
+        updatedAt:
+          type: integer
+      required:
+        - symbol
+        - updatedAt

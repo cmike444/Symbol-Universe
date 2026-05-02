@@ -22,6 +22,7 @@ export interface SymbolRecord {
   earningsDate?: string | null;
   score?: number | null;
   active: number;
+  instrumentType?: string | null;
 }
 
 export interface Candle {
@@ -39,6 +40,14 @@ export interface MarketMetrics {
   ivx?: number | null;
   earningsDate?: string | null;
   lendability?: string | null;
+  ivPercentile?: number | null;
+  liquidityRank?: number | null;
+  beta?: number | null;
+  marketCap?: number | null;
+  callVolume?: number | null;
+  putVolume?: number | null;
+  callOpenInterest?: number | null;
+  putOpenInterest?: number | null;
 }
 
 export interface ErrorResponse {
@@ -47,4 +56,98 @@ export interface ErrorResponse {
 
 export interface MessageResponse {
   message: string;
+}
+
+export type FilterRule =
+  | {
+      metric:
+        | "ivRank"
+        | "ivx"
+        | "score"
+        | "earningsDate"
+        | "price"
+        | "volume"
+        | "open"
+        | "high"
+        | "low"
+        | "ivPercentile"
+        | "liquidityRank"
+        | "beta"
+        | "marketCap"
+        | "callVolume"
+        | "putVolume"
+        | "callOpenInterest"
+        | "putOpenInterest";
+      operator: ">" | ">=" | "<" | "<=" | "=" | "!=" | "between";
+      value: number;
+      /** Required when operator is "between" */
+      value2?: number | null;
+    }
+  | {
+      metric: "lendability" | "instrumentType";
+      operator: "=" | "!=";
+      value: string;
+    };
+
+export interface ScannerSummary {
+  id: string;
+  name: string;
+  description?: string | null;
+  intervalSeconds: number;
+  enabled: boolean;
+  lastRunAt?: number | null;
+  resultCount: number;
+  filterCount: number;
+  createdAt: number;
+}
+
+export interface ScannerDetail {
+  id: string;
+  name: string;
+  description?: string | null;
+  filters: FilterRule[];
+  intervalSeconds: number;
+  enabled: boolean;
+  lastRunAt?: number | null;
+  createdAt: number;
+}
+
+export interface CreateScannerRequest {
+  name: string;
+  description?: string | null;
+  filters: FilterRule[];
+  intervalSeconds?: number;
+  enabled?: boolean;
+}
+
+export interface UpdateScannerRequest {
+  name?: string;
+  description?: string | null;
+  filters?: FilterRule[];
+  intervalSeconds?: number;
+  enabled?: boolean;
+}
+
+export interface ScannerResultItem {
+  symbol: string;
+  ivRank?: number | null;
+  ivx?: number | null;
+  score?: number | null;
+  lendability?: string | null;
+  earningsDate?: string | null;
+  price?: number | null;
+  volume?: number | null;
+  open?: number | null;
+  high?: number | null;
+  low?: number | null;
+  ivPercentile?: number | null;
+  liquidityRank?: number | null;
+  beta?: number | null;
+  marketCap?: number | null;
+  callVolume?: number | null;
+  putVolume?: number | null;
+  callOpenInterest?: number | null;
+  putOpenInterest?: number | null;
+  instrumentType?: string | null;
+  updatedAt: number;
 }

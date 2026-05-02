@@ -104,3 +104,263 @@ export const GetMetricsResponse = zod.object({
   earningsDate: zod.string().nullish(),
   lendability: zod.string().nullish(),
 });
+
+/**
+ * Returns all scanners with their status, last run time, and result count
+ * @summary List all scanners
+ */
+export const ListScannersResponseItem = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  intervalSeconds: zod.number(),
+  enabled: zod.boolean(),
+  lastRunAt: zod.number().nullish(),
+  resultCount: zod.number(),
+  filterCount: zod.number(),
+  createdAt: zod.number(),
+});
+export const ListScannersResponse = zod.array(ListScannersResponseItem);
+
+/**
+ * Creates a new scanner with filter rules and a run interval
+ * @summary Create scanner
+ */
+export const createScannerBodyIntervalSecondsDefault = 300;
+export const createScannerBodyEnabledDefault = true;
+
+export const CreateScannerBody = zod.object({
+  name: zod.string(),
+  description: zod.string().nullish(),
+  filters: zod.array(
+    zod.union([
+      zod
+        .object({
+          metric: zod.enum([
+            "ivRank",
+            "ivx",
+            "score",
+            "earningsDate",
+            "price",
+            "volume",
+            "open",
+            "high",
+            "low",
+          ]),
+          operator: zod.enum([">", ">=", "<", "<=", "=", "!=", "between"]),
+          value: zod.number(),
+          value2: zod
+            .number()
+            .nullish()
+            .describe('Required when operator is \"between\"'),
+        })
+        .describe(
+          "Filter rule for numeric metrics (ivRank, ivx, score, earningsDate, price, volume, open, high, low)",
+        ),
+      zod
+        .object({
+          metric: zod.enum(["lendability"]),
+          operator: zod.enum(["=", "!="]),
+          value: zod.string(),
+        })
+        .describe(
+          "Filter rule for lendability (text metric, only = and != operators)",
+        ),
+    ]),
+  ),
+  intervalSeconds: zod
+    .number()
+    .default(createScannerBodyIntervalSecondsDefault),
+  enabled: zod.boolean().default(createScannerBodyEnabledDefault),
+});
+
+/**
+ * Returns full scanner config including filter rules
+ * @summary Get scanner
+ */
+export const GetScannerParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetScannerResponse = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  filters: zod.array(
+    zod.union([
+      zod
+        .object({
+          metric: zod.enum([
+            "ivRank",
+            "ivx",
+            "score",
+            "earningsDate",
+            "price",
+            "volume",
+            "open",
+            "high",
+            "low",
+          ]),
+          operator: zod.enum([">", ">=", "<", "<=", "=", "!=", "between"]),
+          value: zod.number(),
+          value2: zod
+            .number()
+            .nullish()
+            .describe('Required when operator is \"between\"'),
+        })
+        .describe(
+          "Filter rule for numeric metrics (ivRank, ivx, score, earningsDate, price, volume, open, high, low)",
+        ),
+      zod
+        .object({
+          metric: zod.enum(["lendability"]),
+          operator: zod.enum(["=", "!="]),
+          value: zod.string(),
+        })
+        .describe(
+          "Filter rule for lendability (text metric, only = and != operators)",
+        ),
+    ]),
+  ),
+  intervalSeconds: zod.number(),
+  enabled: zod.boolean(),
+  lastRunAt: zod.number().nullish(),
+  createdAt: zod.number(),
+});
+
+/**
+ * Updates an existing scanner's config; reschedules if needed
+ * @summary Update scanner
+ */
+export const UpdateScannerParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const UpdateScannerBody = zod.object({
+  name: zod.string().optional(),
+  description: zod.string().nullish(),
+  filters: zod
+    .array(
+      zod.union([
+        zod
+          .object({
+            metric: zod.enum([
+              "ivRank",
+              "ivx",
+              "score",
+              "earningsDate",
+              "price",
+              "volume",
+              "open",
+              "high",
+              "low",
+            ]),
+            operator: zod.enum([">", ">=", "<", "<=", "=", "!=", "between"]),
+            value: zod.number(),
+            value2: zod
+              .number()
+              .nullish()
+              .describe('Required when operator is \"between\"'),
+          })
+          .describe(
+            "Filter rule for numeric metrics (ivRank, ivx, score, earningsDate, price, volume, open, high, low)",
+          ),
+        zod
+          .object({
+            metric: zod.enum(["lendability"]),
+            operator: zod.enum(["=", "!="]),
+            value: zod.string(),
+          })
+          .describe(
+            "Filter rule for lendability (text metric, only = and != operators)",
+          ),
+      ]),
+    )
+    .optional(),
+  intervalSeconds: zod.number().optional(),
+  enabled: zod.boolean().optional(),
+});
+
+export const UpdateScannerResponse = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  filters: zod.array(
+    zod.union([
+      zod
+        .object({
+          metric: zod.enum([
+            "ivRank",
+            "ivx",
+            "score",
+            "earningsDate",
+            "price",
+            "volume",
+            "open",
+            "high",
+            "low",
+          ]),
+          operator: zod.enum([">", ">=", "<", "<=", "=", "!=", "between"]),
+          value: zod.number(),
+          value2: zod
+            .number()
+            .nullish()
+            .describe('Required when operator is \"between\"'),
+        })
+        .describe(
+          "Filter rule for numeric metrics (ivRank, ivx, score, earningsDate, price, volume, open, high, low)",
+        ),
+      zod
+        .object({
+          metric: zod.enum(["lendability"]),
+          operator: zod.enum(["=", "!="]),
+          value: zod.string(),
+        })
+        .describe(
+          "Filter rule for lendability (text metric, only = and != operators)",
+        ),
+    ]),
+  ),
+  intervalSeconds: zod.number(),
+  enabled: zod.boolean(),
+  lastRunAt: zod.number().nullish(),
+  createdAt: zod.number(),
+});
+
+/**
+ * Deletes a scanner and removes its schedule
+ * @summary Delete scanner
+ */
+export const DeleteScannerParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const DeleteScannerResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * Returns the current snapshot of passing symbols with their metrics
+ * @summary Get scanner results
+ */
+export const GetScannerResultsParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetScannerResultsResponseItem = zod.object({
+  symbol: zod.string(),
+  ivRank: zod.number().nullish(),
+  ivx: zod.number().nullish(),
+  score: zod.number().nullish(),
+  lendability: zod.string().nullish(),
+  earningsDate: zod.string().nullish(),
+  price: zod.number().nullish(),
+  volume: zod.number().nullish(),
+  open: zod.number().nullish(),
+  high: zod.number().nullish(),
+  low: zod.number().nullish(),
+  updatedAt: zod.number(),
+});
+export const GetScannerResultsResponse = zod.array(
+  GetScannerResultsResponseItem,
+);

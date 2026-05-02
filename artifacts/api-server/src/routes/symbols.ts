@@ -7,9 +7,30 @@ import {
 } from "../db/symbolRepo.js";
 import { subscribeQuotes, unsubscribeQuotes } from "../services/quoteService.js";
 import { getMetrics } from "../services/metricsService.js";
+import { getTastytradeClient } from "../services/tastytradeClient.js";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
+
+async function resolveInstrumentType(symbol: string): Promise<string> {
+  if (symbol.startsWith("/")) {
+    return "Future";
+  }
+  try {
+    const client = await getTastytradeClient();
+    const response = await client.instrumentsService.getSingleEquity(symbol);
+    const data = response?.data as Record<string, unknown> | undefined;
+    if (data) {
+      if (data["is-etf"] === true || data["is-etf"] === "true") return "ETF";
+      if (data["is-index"] === true || data["is-index"] === "true") return "Index";
+      const instrumentType = data["instrument-type"];
+      if (typeof instrumentType === "string" && instrumentType) return instrumentType;
+    }
+  } catch {
+    // ignore — not all symbols have equity data (e.g. futures options)
+  }
+  return "Equity";
+}
 
 router.get("/symbols", async (req, res) => {
   try {
@@ -32,7 +53,12 @@ router.post("/symbols/:symbol", async (req, res) => {
       return;
     }
 
-    const row = await insertSymbol(upper);
+    const instrumentType = await resolveInstrumentType(upper).catch((err: unknown) => {
+      logger.warn({ err, symbol: upper }, "Could not resolve instrument type");
+      return "Equity";
+    });
+
+    const row = await insertSymbol(upper, instrumentType);
 
     await Promise.allSettled([
       subscribeQuotes(upper),

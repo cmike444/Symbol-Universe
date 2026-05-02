@@ -7,8 +7,14 @@
  */
 
 export * from "./candle";
+export * from "./createScannerRequest";
 export * from "./errorResponse";
+export * from "./filterRule";
 export * from "./healthStatus";
 export * from "./marketMetrics";
 export * from "./messageResponse";
+export * from "./scannerDetail";
+export * from "./scannerResultItem";
+export * from "./scannerSummary";
 export * from "./symbolRecord";
+export * from "./updateScannerRequest";

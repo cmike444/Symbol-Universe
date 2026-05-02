@@ -18,15 +18,20 @@ import type {
 
 import type {
   Candle,
+  CreateScannerRequest,
   ErrorResponse,
   HealthStatus,
   MarketMetrics,
   MessageResponse,
+  ScannerDetail,
+  ScannerResultItem,
+  ScannerSummary,
   SymbolRecord,
+  UpdateScannerRequest,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -534,6 +539,518 @@ export function useGetMetrics<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetMetricsQueryOptions(symbol, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns all scanners with their status, last run time, and result count
+ * @summary List all scanners
+ */
+export const getListScannersUrl = () => {
+  return `/api/scanners`;
+};
+
+export const listScanners = async (
+  options?: RequestInit,
+): Promise<ScannerSummary[]> => {
+  return customFetch<ScannerSummary[]>(getListScannersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListScannersQueryKey = () => {
+  return [`/api/scanners`] as const;
+};
+
+export const getListScannersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listScanners>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listScanners>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListScannersQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listScanners>>> = ({
+    signal,
+  }) => listScanners({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listScanners>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListScannersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listScanners>>
+>;
+export type ListScannersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all scanners
+ */
+
+export function useListScanners<
+  TData = Awaited<ReturnType<typeof listScanners>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listScanners>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListScannersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Creates a new scanner with filter rules and a run interval
+ * @summary Create scanner
+ */
+export const getCreateScannerUrl = () => {
+  return `/api/scanners`;
+};
+
+export const createScanner = async (
+  createScannerRequest: CreateScannerRequest,
+  options?: RequestInit,
+): Promise<ScannerDetail> => {
+  return customFetch<ScannerDetail>(getCreateScannerUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createScannerRequest),
+  });
+};
+
+export const getCreateScannerMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createScanner>>,
+    TError,
+    { data: BodyType<CreateScannerRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createScanner>>,
+  TError,
+  { data: BodyType<CreateScannerRequest> },
+  TContext
+> => {
+  const mutationKey = ["createScanner"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createScanner>>,
+    { data: BodyType<CreateScannerRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createScanner(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateScannerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createScanner>>
+>;
+export type CreateScannerMutationBody = BodyType<CreateScannerRequest>;
+export type CreateScannerMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create scanner
+ */
+export const useCreateScanner = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createScanner>>,
+    TError,
+    { data: BodyType<CreateScannerRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createScanner>>,
+  TError,
+  { data: BodyType<CreateScannerRequest> },
+  TContext
+> => {
+  return useMutation(getCreateScannerMutationOptions(options));
+};
+
+/**
+ * Returns full scanner config including filter rules
+ * @summary Get scanner
+ */
+export const getGetScannerUrl = (id: string) => {
+  return `/api/scanners/${id}`;
+};
+
+export const getScanner = async (
+  id: string,
+  options?: RequestInit,
+): Promise<ScannerDetail> => {
+  return customFetch<ScannerDetail>(getGetScannerUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetScannerQueryKey = (id: string) => {
+  return [`/api/scanners/${id}`] as const;
+};
+
+export const getGetScannerQueryOptions = <
+  TData = Awaited<ReturnType<typeof getScanner>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getScanner>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetScannerQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getScanner>>> = ({
+    signal,
+  }) => getScanner(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getScanner>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetScannerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getScanner>>
+>;
+export type GetScannerQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get scanner
+ */
+
+export function useGetScanner<
+  TData = Awaited<ReturnType<typeof getScanner>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getScanner>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetScannerQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Updates an existing scanner's config; reschedules if needed
+ * @summary Update scanner
+ */
+export const getUpdateScannerUrl = (id: string) => {
+  return `/api/scanners/${id}`;
+};
+
+export const updateScanner = async (
+  id: string,
+  updateScannerRequest: UpdateScannerRequest,
+  options?: RequestInit,
+): Promise<ScannerDetail> => {
+  return customFetch<ScannerDetail>(getUpdateScannerUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateScannerRequest),
+  });
+};
+
+export const getUpdateScannerMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateScanner>>,
+    TError,
+    { id: string; data: BodyType<UpdateScannerRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateScanner>>,
+  TError,
+  { id: string; data: BodyType<UpdateScannerRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateScanner"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateScanner>>,
+    { id: string; data: BodyType<UpdateScannerRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateScanner(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateScannerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateScanner>>
+>;
+export type UpdateScannerMutationBody = BodyType<UpdateScannerRequest>;
+export type UpdateScannerMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update scanner
+ */
+export const useUpdateScanner = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateScanner>>,
+    TError,
+    { id: string; data: BodyType<UpdateScannerRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateScanner>>,
+  TError,
+  { id: string; data: BodyType<UpdateScannerRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateScannerMutationOptions(options));
+};
+
+/**
+ * Deletes a scanner and removes its schedule
+ * @summary Delete scanner
+ */
+export const getDeleteScannerUrl = (id: string) => {
+  return `/api/scanners/${id}`;
+};
+
+export const deleteScanner = async (
+  id: string,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getDeleteScannerUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteScannerMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteScanner>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteScanner>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["deleteScanner"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteScanner>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteScanner(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteScannerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteScanner>>
+>;
+
+export type DeleteScannerMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete scanner
+ */
+export const useDeleteScanner = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteScanner>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteScanner>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getDeleteScannerMutationOptions(options));
+};
+
+/**
+ * Returns the current snapshot of passing symbols with their metrics
+ * @summary Get scanner results
+ */
+export const getGetScannerResultsUrl = (id: string) => {
+  return `/api/scanners/${id}/results`;
+};
+
+export const getScannerResults = async (
+  id: string,
+  options?: RequestInit,
+): Promise<ScannerResultItem[]> => {
+  return customFetch<ScannerResultItem[]>(getGetScannerResultsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetScannerResultsQueryKey = (id: string) => {
+  return [`/api/scanners/${id}/results`] as const;
+};
+
+export const getGetScannerResultsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getScannerResults>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getScannerResults>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetScannerResultsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getScannerResults>>
+  > = ({ signal }) => getScannerResults(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getScannerResults>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetScannerResultsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getScannerResults>>
+>;
+export type GetScannerResultsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get scanner results
+ */
+
+export function useGetScannerResults<
+  TData = Awaited<ReturnType<typeof getScannerResults>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getScannerResults>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetScannerResultsQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

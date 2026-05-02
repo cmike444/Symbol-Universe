@@ -7,6 +7,12 @@ const ROUTE_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
   { pattern: /^DELETE \/api\/symbols\//, label: "DELETE /api/symbols/:symbol" },
   { pattern: /^GET \/api\/candles\//, label: "GET /api/candles/:symbol/:timeframe" },
   { pattern: /^GET \/api\/metrics\//, label: "GET /api/metrics/:symbol" },
+  { pattern: /^GET \/api\/scanners$/, label: "GET /api/scanners" },
+  { pattern: /^POST \/api\/scanners$/, label: "POST /api/scanners" },
+  { pattern: /^GET \/api\/scanners\/[^/]+\/results$/, label: "GET /api/scanners/:id/results" },
+  { pattern: /^GET \/api\/scanners\/[^/]+$/, label: "GET /api/scanners/:id" },
+  { pattern: /^PUT \/api\/scanners\//, label: "PUT /api/scanners/:id" },
+  { pattern: /^DELETE \/api\/scanners\//, label: "DELETE /api/scanners/:id" },
 ];
 
 export function increment(method: string, path: string): void {
